@@ -1,0 +1,338 @@
+---
+title: "Assignment 1"
+author: "Arnav Murulidhar"
+date: "9/13/2020"
+output: html_document
+---
+
+``` {r , message = FALSE}
+library(ggplot2)
+library(tidycensus)
+library(tidyverse)
+```
+
+## Variables used: 
+To create my data frame, I have filtered the database for residents of LA county who commute to work and live in a property of value.
+
+1. Property value (continuous) : valp
+2. Units in structure (categorical) : bld
+3. Total person's income (continuous) : pincp
+4. Means of transportation to work (categorical) : jwtr
+5. Travel time to work (continuous) : jwmnp
+
+```{r load person-level data, results = 'hide'}
+person_data <- get_pums(variables = c("PUMA",
+                                      "VALP", 
+                                      "BLD", 
+                                      "PINCP", 
+                                      "JWTR", 
+                                      "JWMNP"),
+                        state = 06,
+                        year = 2018, 
+                        survey = "acs1",
+                        recode = TRUE) %>%
+  filter(JWMNP > 0, VALP > 0, as.numeric(PUMA) == 03701) %>%
+  select(VALP, BLD, PINCP, JWTR, JWMNP)
+```
+## Plot 1: Everything!
+```{r everything scatter plot}
+ggplot(person_data, 
+       aes(x = VALP,
+           y = PINCP,
+           size = JWMNP,
+           shape = JWTR,
+           color = BLD)) +
+  geom_point() +
+  scale_size_continuous(name = "Tract population") +
+  scale_x_continuous(name = "Property value",
+                     breaks = seq(0, 10000000, by = 1000000)) +
+  scale_y_continuous(name = "Income",
+                     breaks = seq(0, 1000000, by = 100000)) +
+  scale_color_discrete(name = "Housing type",
+                       labels = c("One-family house detached",
+                                  "10-19 Apartments",
+                                  "Mobile home or trailer",
+                                  "One-family house attached",
+                                  "5-9 Apartments",
+                                  "3-4 Apartments",
+                                  "50 or more Apartments")) +
+  scale_shape(name = element_blank(), 
+              labels = c("car, truck or van", 
+                         "Bicyle",
+                         "Bus or Trolley Bus",
+                         "Railroad",
+                         "Motorcycle",
+                         "Walked",
+                         "Other")) +
+  theme_bw() +
+  theme(legend.key.size = unit(0.1, "cm"))
+```
+
+## Plot 2: Three variable scatter plot
+```{r no-size scatter plot}
+ggplot(person_data, 
+       aes(x = VALP,
+           y = PINCP,
+           color = BLD,)) +
+  geom_point() +
+  scale_size_continuous(name = "Tract population") +
+  scale_x_continuous(name = "Property value",
+                     breaks = seq(0, 10000000, by = 1000000)) +
+  scale_y_continuous(name = "Income",
+                     breaks = seq(0, 1000000, by = 100000)) +
+  scale_color_discrete(name = "Housing type",
+                       labels = c("One-family house detached",
+                                  "10-19 Apartments",
+                                  "Mobile home or trailer",
+                                  "One-family house attached",
+                                  "5-9 Apartments",
+                                  "3-4 Apartments",
+                                  "50 or more Apartments")) +
+  theme_bw() +
+  theme(legend.key.size = unit(0.1, "cm"))
+```
+
+## Plot 3: Scatter with fill
+```{r fill scatter plot}
+ggplot(person_data, 
+       aes(x = VALP,
+           y = PINCP,
+           color = BLD,
+           fill = BLD)) +
+  geom_point() +
+  stat_smooth(method = "lm") +
+  scale_size_continuous(name = "Tract population") +
+  scale_x_continuous(name = "Property value",
+                     breaks = seq(0, 10000000, by = 1000000),
+                     labels = paste(seq(0, 10000000, by = 1000000), "k", sep = "")) +
+  scale_y_continuous(name = "Income",
+                     breaks = seq(0, 1000000, by = 100000),
+                     labels = paste(seq(0, 1000000, by = 100000), "k", sep = "")) +
+  scale_color_discrete(name = "Housing type",
+                       labels = c("One-family house detached",
+                                  "10-19 Apartments",
+                                  "Mobile home or trailer",
+                                  "One-family house attached",
+                                  "5-9 Apartments",
+                                  "3-4 Apartments",
+                                  "50 or more Apartments")) +
+  scale_fill_discrete(name = "Housing type",
+                       labels = c("One-family house detached",
+                                  "10-19 Apartments",
+                                  "Mobile home or trailer",
+                                  "One-family house attached",
+                                  "5-9 Apartments",
+                                  "3-4 Apartments",
+                                  "50 or more Apartments")) +
+  theme_bw() +
+  theme(legend.key.size = unit(0.1, "cm"))
+```
+
+## Plot 4: Two variable scatter
+```{r two-var scatter plot}
+ggplot(person_data, 
+       aes(x = PINCP,
+           y = JWMNP)) +
+  geom_point() +
+  stat_smooth(color = "black", linetype = 2, size = 0.5) +
+  scale_x_continuous(name = "Income") +
+  scale_y_continuous(name = "Commute time") +
+  theme_bw()
+```
+
+## Plot 5: Two variable log scatter
+```{r log scatter plot}
+ggplot(person_data, 
+       aes(x = PINCP,
+           y = JWMNP)) +
+  geom_point() +
+  stat_smooth(color = "black", linetype = 2, size = 0.5) +
+  scale_y_continuous(name = "commute time") +
+  scale_x_continuous(name = "income",
+                     trans = "log",
+                     breaks = c(10, 100, 1000, 10000,100000,1000000),
+                     labels = c("10", "100", "1,000", "10,000", "100,000", "1,000,000")) +
+  theme_bw()
+```
+
+## Plot 6: Polar scatter
+```{r polar scatter plot}
+ggplot(person_data, 
+       aes(x = PINCP,
+           y = JWMNP)) +
+  geom_point(alpha = 0.5, size = 0.5) +
+  stat_smooth(color = "black", linetype = 2, size = 0.5) +
+  scale_y_continuous(name = "commute time") +
+  scale_x_continuous(name = "income",
+                     trans = "log",
+                     breaks = c(10, 100, 1000, 10000,100000,1000000),
+                     labels = c("10", "100", "1,000", "10,000", "100,000", "1,000,000")) +
+  coord_polar(theta = "x") +
+  theme_bw()
+```
+
+## Plot 7: Categorical Variable scatter
+```{r categ scatter plot}
+ggplot(person_data, 
+       aes(x = BLD,
+           y = PINCP)) +
+  geom_point() +
+  scale_x_discrete(name = "Housing type",
+                       labels = c("One-family\n house detached",
+                                  "10-19\nApartments",
+                                  "Mobile home\n or trailer",
+                                  "One-family house\n attached",
+                                  "5-9\n Apartments",
+                                  "3-4\n Apartments",
+                                  "50 \nor \nmore Apartments")) +
+  scale_y_continuous(name = "Income") +
+  theme_bw() 
+```
+
+## Plot 8: Categorical jittered
+```{r categ jitter scatter plot}
+ggplot(person_data, 
+       aes(x = BLD,
+           y = PINCP,
+           color = BLD)) +
+  geom_point(position = "jitter",
+             size = 0.75,
+             alpha = 0.5) +
+  scale_x_discrete(name = "Housing type",
+                       labels = c("One-family\n house detached",
+                                  "10-19\nApartments",
+                                  "Mobile home\n or trailer",
+                                  "One-family house\n attached",
+                                  "5-9\n Apartments",
+                                  "3-4\n Apartments",
+                                  "50 \nor \nmore Apartments")) +
+  scale_y_continuous(name = "Income") +
+  theme_bw() 
+```
+
+## Plot 9: Categorical box
+```{r categ box plot}
+ggplot(person_data, 
+       aes(x = BLD,
+           y = PINCP,
+           color = BLD)) +
+  geom_boxplot() +
+  scale_x_discrete(name = "Housing type",
+                       labels = c("One-family\n house detached",
+                                  "10-19\nApartments",
+                                  "Mobile home\n or trailer",
+                                  "One-family house\n attached",
+                                  "5-9\n Apartments",
+                                  "3-4\n Apartments",
+                                  "50 \nor \nmore Apartments")) +
+  scale_y_continuous(name = "Income") +
+  theme_bw() 
+```
+
+## Plot 10: Categorical violin
+```{r categ violin plot}
+ggplot(person_data, 
+       aes(x = BLD,
+           y = PINCP,
+           color = BLD)) +
+  geom_violin() +
+  scale_x_discrete(name = "Housing type",
+                       labels = c("One-family\n house detached",
+                                  "10-19\nApartments",
+                                  "Mobile home\n or trailer",
+                                  "One-family house\n attached",
+                                  "5-9\n Apartments",
+                                  "3-4\n Apartments",
+                                  "50 \nor \nmore Apartments")) +
+  scale_y_continuous(name = "Income") +
+  theme_bw() 
+```
+
+## Plot 11: Categorical scattered violin
+```{r categ violin scatter plot}
+ggplot(person_data, 
+       aes(x = BLD,
+           y = PINCP,
+           color = BLD)) +
+  geom_violin() +
+  geom_point(position = "jitter",
+             alpha = 0.5,
+             size = 0.5) +
+  scale_x_discrete(name = "Housing type",
+                       labels = c("One-family\n house detached",
+                                  "10-19\nApartments",
+                                  "Mobile home\n or trailer",
+                                  "One-family house\n attached",
+                                  "5-9\n Apartments",
+                                  "3-4\n Apartments",
+                                  "50 \nor \nmore Apartments")) +
+  scale_y_continuous(name = "Income") +
+  theme_bw() 
+```
+
+## Plot 12: Categorical bar
+```{r categ bar chart}
+ggplot(person_data, aes(x = BLD, fill = JWTR)) +
+  geom_bar() +
+  scale_y_continuous(name = "Number of people") +
+  scale_x_discrete(name = "Housing type",
+                       labels = c("One-family\n house detached",
+                                  "10-19\nApartments",
+                                  "Mobile home\n or trailer",
+                                  "One-family house\n attached",
+                                  "5-9\n Apartments",
+                                  "3-4\n Apartments",
+                                  "50 \nor \nmore Apartments")) +
+  scale_fill_discrete(name = element_blank(),
+                        labels = c("car, truck or van", 
+                         "Bicyle",
+                         "Bus or Trolley Bus",
+                         "Railroad",
+                         "Motorcycle",
+                         "Walked",
+                         "Other")) +
+  theme_bw() 
+```
+
+## Plot 13: Categorical dodged bar
+```{r categ dodge bar chart}
+ggplot(person_data, aes(x = BLD, fill = JWTR)) +
+  geom_bar(position = "dodge") +
+  scale_y_continuous(name = "Number of people") +
+  scale_x_discrete(name = "Housing type",
+                       labels = c("One-family\n house detached",
+                                  "10-19\nApartments",
+                                  "Mobile home\n or trailer",
+                                  "One-family house\n attached",
+                                  "5-9\n Apartments",
+                                  "3-4\n Apartments",
+                                  "50 \nor \nmore Apartments")) +
+  scale_fill_discrete(name = element_blank(),
+                        labels = c("car, truck or van", 
+                         "Bicyle",
+                         "Bus or Trolley Bus",
+                         "Railroad",
+                         "Motorcycle",
+                         "Walked",
+                         "Other")) +
+  theme_bw() 
+```
+
+## Plot 14: Pie!
+```{r pie chart}
+pie_chart <- ggplot(person_data, aes(x = 1, fill = BLD)) +
+  geom_bar(position = "fill") +
+  coord_polar(theta = "y") +
+  scale_y_continuous() +
+  scale_fill_discrete(name = "Housing type",
+                       labels = c("One-family house detached",
+                                  "10-19 Apartments",
+                                  "Mobile home or trailer",
+                                  "One-family house attached",
+                                  "5-9 Apartments",
+                                  "3-4 Apartments",
+                                  "50 or more Apartments")) +
+  theme_void() 
+
+pie_chart
+```
