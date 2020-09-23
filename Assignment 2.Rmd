@@ -1,0 +1,138 @@
+---
+title: "Assignment 2"
+author: "Arnav Murulidhar"
+date: "9/20/2020"
+output: html_document
+---
+
+``` {r , message = FALSE}
+library(ggplot2)
+library(sf)
+library(rnaturalearth)
+library(tidyverse)
+library(ggspatial)
+library(cartogram)
+library(ggthemes)
+```
+
+``` {r create india}
+india_states <- ne_states(country = "India", returnclass = "sf")
+```
+
+``` {r draw india everest map}
+INDIA_EVE <- "+proj=lcc +lat_1=12.47278 +lat_2=35.17281 +lat_0=0 +lon_0=82 +x_0=2000000 +y_0=2000000 +a=6377301.243 +b=6356100.228368102 +units=m +no_defs "
+
+ggplot(india_states) +
+  geom_sf() +
+  coord_sf(crs = INDIA_EVE) +
+  theme_bw() + annotation_scale()
+```
+
+India test eve (Everest) projection
+
+``` {r draw india merc map}
+INDIA_MER <- "+proj=merc +a=6378137 +b=6378137 +lat_ts=0.0 +lon_0=0.0 +x_0=0.0 +y_0=0 +k=1.0 +units=m +nadgrids=@null +wktext  +no_defs"
+
+ggplot(india_states) +
+  geom_sf() +
+  coord_sf(crs = INDIA_MER) +
+  theme_bw() + annotation_scale()
+```
+
+Mercator projection
+
+``` {r draw india down map}
+INDIA_DOWN <- "+proj=tmerc +lat_0=37.5 +lon_0=-85.66666666666667 +k=0.9999666666666667 +x_0=99999.99999999999 +y_0=250000 +ellps=GRS80 +to_meter=0.3048006096012192 +no_defs"
+
+ggplot(india_states) +
+  geom_sf() +
+  coord_sf(crs = INDIA_DOWN) +
+  theme_bw() + annotation_scale()
+```
+
+Inverted Everest 1975 Projection
+
+```{r transform}
+states_transformed <- india_states %>%
+  st_transform(crs = INDIA_MER)
+
+ggplot(states_transformed) +
+  geom_sf() +
+  theme_bw()
+```
+
+
+
+
+``` {r csv merge}
+fertility <- read_csv("fertility.csv")
+
+indian_fert_states <-states_transformed %>%
+  left_join(fertility, by = c("name" = "State")) %>%
+  select(name, Rate, Population)
+```
+## Chloropleth map
+``` {r fert map}
+ggplot(indian_fert_states, aes(fill = Rate)) +
+  geom_sf() +
+  scale_fill_viridis_c(
+    name = "Fertility rate",
+    breaks = seq(1, 3.5, by = 0.5),
+    labels = formatC(seq(1, 3.5, by = 0.5), 
+                     big.mark = ",", format = "f", digits = 1))+
+  theme_map() +
+  theme(legend.background = element_blank())
+```
+
+## Dorling Cartogram
+
+``` {r fert dorling}
+fert_cartogram_dorling <- indian_fert_states %>%
+  cartogram_dorling("Population")
+
+ggplot(fert_cartogram_dorling, aes(fill = Rate)) +
+  geom_sf() +
+  scale_fill_viridis_c(
+    name = "Fertility rate",
+    breaks = seq(1, 3.5, by = 0.5),
+    labels = formatC(seq(1, 3.5, by = 0.5), 
+                     big.mark = ",", format = "f", digits = 1))+
+  theme_map() +
+  theme(legend.background = element_blank())
+```
+
+## Non-Continuous Cartogram
+
+``` {r fert nc carto}
+fert_cartogram_ncont <- indian_fert_states %>%
+  cartogram_ncont("Population")
+
+ggplot(fert_cartogram_ncont, aes(fill = Rate)) +
+  geom_sf() +
+  scale_fill_viridis_c(
+    name = "Fertility rate",
+    breaks = seq(1, 3.5, by = 0.5),
+    labels = formatC(seq(1, 3.5, by = 0.5), 
+                     big.mark = ",", format = "f", digits = 1))+
+  theme_map() +
+  theme(legend.background = element_blank())
+```
+
+## Continuous Cartogram
+
+``` {r fert carto, message=FALSE}
+fert_cartogram_cont <- indian_fert_states %>%
+  cartogram_cont("Population")
+
+ggplot(fert_cartogram_cont, aes(fill = Rate)) +
+  geom_sf() +
+  scale_fill_viridis_c(
+    name = "Fertility rate",
+    breaks = seq(1, 3.5, by = 0.5),
+    labels = formatC(seq(1, 3.5, by = 0.5), 
+                     big.mark = ",", format = "f", digits = 1))+
+  theme_map() +
+  theme(legend.background = element_blank())
+```
+
+This is an interesting issue. Note the state that in the center North that is blank. For some reason, it doesn't appear to have any data in this particular map, but appears in all others. I looked through the data and nothing seemed to be missing. Not sure if it's a continous cartogram bug or an issue with some missing geometric data in the package.
