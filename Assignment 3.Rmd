@@ -1,0 +1,251 @@
+---
+title: "Assignment 3"
+author: "Arnav Murulidhar"
+date: "9/25/2020"
+output: html_document
+---
+
+``` {r , message = FALSE}
+library(sf)
+library(tidyverse)
+library(ggthemes)
+library(ggspatial)
+library(units)
+library(nngeo)
+```
+
+``` {r, load map}
+nhoods <- st_read("cmty_plan_datasd.shp", 
+                  quiet = TRUE)
+prom_zones <- st_read("promise_zone_datasd.shp", 
+                  quiet = TRUE)
+his_dis <- st_read("historic_districts_datasd.shp", 
+                  quiet = TRUE)
+transit <- st_read("transit_stops_datasd.shp", 
+                  quiet = TRUE)
+rec <- st_read("rec_centers_datasd.shp", 
+                  quiet = TRUE)
+
+
+CA_state_plane <- "+proj=aea +lat_1=34 +lat_2=40.5 +lat_0=0 +lon_0=-120 +x_0=0 +y_0=-4000000 +ellps=GRS80 +datum=NAD83 +units=m +no_defs"
+
+nhoods <- nhoods %>%
+  st_transform(CA_state_plane)
+prom_zones <- prom_zones %>%
+  st_transform(CA_state_plane)
+his_dis <- his_dis %>%
+  st_transform(CA_state_plane)
+transit <- transit %>%
+  st_transform(CA_state_plane)
+rec <- rec %>%
+  st_transform(CA_state_plane)
+
+```
+
+## San Diego
+The southern portion of the city of San Diego, with it's transit stops highlighted (red), it's rec centers in green and it's historic districts in light green and promise zones in blue. Promise zones are areas of cities with concentrated poverty and unemployment and are streamlined to more efficiently and quickly receive federal funds.
+
+``` {r draw}
+ggplot() +
+  geom_sf(data = nhoods, fill = NA, color = "gray") +
+  geom_sf(data = prom_zones, fill = "lightblue", color = "gray") +
+  geom_sf(data = his_dis, fill = "lightgreen", color = "gray") +
+  geom_sf(data = transit, color = "red", size = 0.01) +
+  geom_sf(data = rec, color = "darkgreen", size = 2) +
+  coord_sf(xlim = c(254730.1, 289188.7), ylim = c(-604427.3, -576000), expand = FALSE) +
+  theme_map() +
+  annotation_scale()
+```
+
+2. The number and proportion of rec centers within a specified distance (500m) of transit centers.
+``` {r add name column}
+rec$Name <-c("")
+transit$Name <-c("")
+
+```
+
+``` {r between spec dist} 
+transit_buffer <- st_buffer(transit, dist = 500) %>%
+  st_union()
+
+rec_transit <- rec[transit_buffer,]
+  
+ggplot(transit_buffer) +
+  geom_sf() +
+  geom_sf(data = rec_transit, 
+          color = "darkgreen", 
+          size = 2) +
+  theme_map()
+```
+
+
+```{r}
+
+rec <- rec %>%
+  st_join(rec_transit) %>%
+  mutate(by_transit = !is.na(Name.y))
+
+n_transit_rec <- sum(rec$by_transit)
+
+n_transit_rec
+
+n_rec <- length(rec$by_transit)
+
+pct_transit_rec <- n_transit_rec / n_rec
+
+pct_transit_rec
+```
+
+``` {r pretty map}
+left_side  <- 254840
+top_side <- -590000
+
+ggplot() +
+  geom_sf(data = rec, size = 2,
+          aes(color = by_transit)) +
+  scale_color_manual(values = c("red", "darkred"),
+          name = "San Diego rec centers\nby distance to a transit stop", 
+          labels = c("No transit stop within 500 m",
+                     "Transit stop within 500 m")) +
+  annotation_scale(location = "br") +
+  annotation_north_arrow(location = "tr",
+                         style = north_arrow_minimal()) +
+  annotate(geom = "text", x = left_side, 
+           y = top_side, 
+           label = paste("Of the ", 
+                         prettyNum(n_rec, big.mark = ","),
+                         " rec centers in San Diego\n", 
+                         prettyNum(n_transit_rec, big.mark = ","),
+                         " (", 
+                         prettyNum(100*pct_transit_rec, digits = 0),
+                         "%) are within 500\nmeters of a transit stop.",
+                         sep = ""),
+           hjust = 0, vjust = 0, size = 3) +
+  theme_map() +
+  coord_sf(xlim = c(254730.1, 289188.7), ylim = c(-604427.3, -570000), expand = FALSE) +
+  theme(panel.background = element_rect(fill = "cornsilk1"),
+        legend.background = element_rect(fill = alpha("white", 0.5), 
+                                         color = "gray"))
+```
+
+
+4. The average (Euclidean) distance between rec centers and their nearest respective transit stops.
+``` {r avg nearest transit to rec}
+
+rec <- rec %>%
+  mutate(transit_dist = st_nn(rec, transit, 
+                           returnDist = TRUE)$dist) %>%
+  mutate(transit_dist = as.numeric(transit_dist))
+
+  avg_transit_dist <- mean(rec$transit_dist)
+
+  avg_transit_dist
+
+ggplot() +
+  geom_sf(data = rec, size = 2,
+          aes(color = transit_dist)) +
+  coord_sf(xlim = c(254730.1, 289188.7), ylim = c(-604427.3, -570000), expand = FALSE) +
+  scale_color_viridis_c(name = 
+                          "San Diego rec centers\nby distance to a transit stop") +
+  annotation_scale(location = "br") +
+  annotation_north_arrow(location = "tr",
+                         style = north_arrow_minimal()) +
+  annotate(geom = "text", x = left_side + 300, 
+           y = top_side - 550, 
+           label = paste("On average, a San Diego rec center\nis ", 
+                         prettyNum(avg_transit_dist, digits = 3),
+                         " meters from a transit stop.",
+                         sep = ""),
+           hjust = 0, vjust = 0, size = 3) +
+  theme_map() +
+  theme(panel.background = element_rect(fill = "cornsilk1"),
+        legend.background = element_rect(fill = alpha("white", 0.5), 
+                                         color = "gray"))
+
+```
+
+6. The number and proportion of transit stops within historic districts.
+``` {r transit in his_dis}
+
+his_dis <- his_dis %>%
+  mutate(num_transit = lengths(st_covers(his_dis, transit)))
+
+ggplot(his_dis) +
+  geom_sf(color = NA, 
+          aes(fill = num_transit)) +
+    geom_sf(data = transit, color = "red", size = 0.01) +
+  coord_sf(xlim = c(254730.1, 289188.7), ylim = c(-604427.3, -570000), expand = FALSE) +
+  scale_fill_viridis_c(name = "San Diego historic districts\nby number of transit stops",
+                       breaks = breaks <- seq(0, 30, by = 10),
+                       labels = paste(prettyNum(breaks, big.mark = ","),
+                                      "transit stops")) +
+  annotation_scale(location = "br") +
+  annotation_north_arrow(location = "tr",
+                         style = north_arrow_minimal()) +
+theme_map() +
+  theme(legend.background = element_rect(fill = alpha("white", 0.5), 
+                                         color = "gray"))
+```
+
+7. The number and proportion of transit stops within promise zones.
+``` {r transit in prom_zones}
+
+prom_zones <- prom_zones %>%
+  mutate(num_transit = lengths(st_covers(prom_zones, transit)))
+
+ggplot(prom_zones) +
+  geom_sf(color = NA, 
+          aes(fill = num_transit)) +
+  geom_sf(data = transit, color = "red", size = 0.01) +
+  coord_sf(xlim = c(254730.1, 289188.7), ylim = c(-604427.3, -570000), expand = FALSE) +
+  scale_fill_viridis_c(name = "San Diego promise zones\nby number of transit stops") +
+  annotation_scale(location = "br") +
+  annotation_north_arrow(location = "tr",
+                         style = north_arrow_minimal()) +
+theme_map() +
+  theme(legend.background = element_rect(fill = alpha("white", 0.5), 
+                                         color = "gray"))
+```
+
+8. The number and proportion of rec centers within historic districts.
+``` {r rec in his_dis}
+
+his_dis <- his_dis %>%
+  mutate(num_rec = lengths(st_covers(his_dis, rec)))
+
+ggplot(his_dis) +
+  geom_sf(color = NA, 
+          aes(fill = num_rec)) +
+  geom_sf(data = rec, color = "darkgreen", size = 1) +
+  coord_sf(xlim = c(254730.1, 289188.7), ylim = c(-604427.3, -570000), expand = FALSE) +
+  scale_fill_viridis_c(name = "San Diego historic districts\nby number of rec centers",
+                       breaks = breaks <- seq(0, 2, by = 1),
+                       labels = paste(prettyNum(breaks, big.mark = ","),
+                                      "rec centers")) +
+  annotation_scale(location = "br") +
+  annotation_north_arrow(location = "tr",
+                         style = north_arrow_minimal()) +
+theme_map() +
+  theme(legend.background = element_rect(fill = alpha("white", 0.5), 
+                                         color = "gray"))
+```
+
+9. The number and proportion of rec centers within promise zones.
+``` {r rec in prom_zones}
+
+prom_zones <- prom_zones %>%
+  mutate(num_rec = lengths(st_covers(prom_zones, rec)))
+
+ggplot(prom_zones) +
+  geom_sf(color = NA, 
+          aes(fill = num_rec)) +
+    geom_sf(data = rec, color = "darkgreen", size = 1) +
+  coord_sf(xlim = c(254730.1, 289188.7), ylim = c(-604427.3, -570000), expand = FALSE) +
+  scale_fill_viridis_c(name = "San Diego promise zones\nby number of rec centers") +
+  annotation_scale(location = "br") +
+  annotation_north_arrow(location = "tr",
+                         style = north_arrow_minimal()) +
+theme_map() +
+  theme(legend.background = element_rect(fill = alpha("white", 0.5), 
+                                         color = "gray"))
+```
