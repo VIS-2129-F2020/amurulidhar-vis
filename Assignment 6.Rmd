@@ -1,0 +1,38 @@
+---
+title: "Assignment 6"
+author: "Arnav Murulidhar"
+date: "10/25/2020"
+output: html_document
+---
+
+``` {r , message = FALSE, echo = FALSE}
+library(tidyverse)
+library(sf)
+library(leaflet)
+library(htmltools)
+library(htmlwidgets)
+```
+
+``` {r load map, echo = FALSE, results = FALSE}
+libraries <- st_read("http://seshat.datasd.org/sde/library/libraries_datasd.geojson")
+```
+
+``` {r load map, echo = FALSE, results = FALSE}
+libraries$describe <-
+  paste(libraries$name, "<br>",
+               libraries$phone) %>%
+  lapply(htmltools::HTML)
+
+libraries_map2 <- leaflet(libraries) %>%
+  addProviderTiles(providers$CartoDB) %>%
+  addCircles(fillColor = "green", color = "green", 
+             stroke = FALSE, radius = 500,
+              highlightOptions = highlightOptions(fillColor = "darkgreen", 
+                                                  fillOpacity = 1),
+              popup = ~describe) %>%
+  addControl("Library Locations in San Diego", position = "topright")
+
+libraries_map2
+
+saveWidget(libraries_map2, file = "libraries.html")
+```
